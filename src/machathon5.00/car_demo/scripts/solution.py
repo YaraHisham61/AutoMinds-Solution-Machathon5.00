@@ -38,11 +38,10 @@ class SolutionNode(Node):
         self.fps_counter = FPSCounter()
         self.bridge = CvBridge()
         self.command = Control()
-        # while(1):
-        #     self.command.throttle = 1.0
-        #     self.command.shift_gears = Control.FORWARD
-        #     self.command.steer = 0.0
-        #     self.publisher.publish(self.command)
+
+        self.command.throttle = 0.3
+        self.command.steer = 0.0
+        self.publisher.publish(self.command)
     
     def draw_fps(self, img):
         self.fps_counter.step()
@@ -50,6 +49,19 @@ class SolutionNode(Node):
         cv2.putText(
             img,
             f"FPS: {fps:.2f}",
+            (10, 30),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1,
+            (0, 255, 0),
+            2,
+            cv2.LINE_AA,
+        )
+        return img
+    def draw_ratio(self, img,ratio):
+
+        cv2.putText(
+            img,
+            f"ratio: {ratio:.2f}",
             (10, 30),
             cv2.FONT_HERSHEY_SIMPLEX,
             1,
@@ -137,7 +149,7 @@ class SolutionNode(Node):
 
     def callback(self,msg:Image):
         cv_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
-        cv_image = self.draw_fps(cv_image)
+        # cv_image = self.draw_fps(cv_image)
         canny = self.canny(cv_image)
         cropped_canny = self.region_of_interest(canny)
         lines = cv2.HoughLinesP(cropped_canny, 2, np.pi/180, 100, np.array([]), minLineLength=40,maxLineGap=5)
@@ -154,23 +166,40 @@ class SolutionNode(Node):
         # print("current_point",current_point)
         # print("distance",math.sqrt((target_point[0]-current_point[0])*2+(target_point[1]-current_point[1])*2))
         
+        # make pid system 
+     
+        error = (target_point[0] - current_point[0]) 
+        # self.command.steer = error 
+        # self.command.throttle =min( 1 - abs(error) + 0.1,0.6)
 
 
-        if (target_point[0] - current_point[0]) >= 20:
+        # cv_image = self.draw_ratio(cv_image,error)
+
+        if error >= 30:
             # go right
-            print("go right")
-            self.command.throttle = 0.3
-            self.command.steer = 1.0
-        elif (target_point[0] - current_point[0]) <= -20:
+            print("go  right")
+            self.command.throttle = 0.2
+            self.command.steer += 0.1 
+            # self.command.brake = 0.5
+        elif error <= -30:
             # go left
-            print("go left")
-            self.command.throttle = 0.3
-            self.command.steer = -1.0
+            print("go  left")
+            self.command.throttle = 0.2
+            self.command.steer += -0.1
+            # self.command.brake = 0.5
         else:
             # go straight
             print("go straight")
-            self.command.throttle = 0.8
+            self.command.throttle += 0.1 
             self.command.steer = 0.0
+            # self.command.brake = 0.0
+
+        if self.command.throttle > 0.75:
+                self.command.throttle = 0.8
+        if self.command.steer > 1.0:
+            self.command.steer = 1.0
+        if self.command.steer < -1.0:
+            self.command.steer = -1.0
         self.publisher.publish(self.command)
 
 
