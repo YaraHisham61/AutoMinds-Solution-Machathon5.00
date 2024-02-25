@@ -104,7 +104,7 @@ class SolutionNode(Node):
         right_fit   = []
         right_line = []
         if lines is None:
-            return None
+            return [] , (image.shape[0]//2,int(image.shape[1]*3/4))        
         for line in lines:
             for x1, y1, x2, y2 in line:
                 fit = np.polyfit((x1,x2), (y1,y2), 1)
@@ -142,10 +142,12 @@ class SolutionNode(Node):
         cropped_canny = self.region_of_interest(canny)
         lines = cv2.HoughLinesP(cropped_canny, 2, np.pi/180, 100, np.array([]), minLineLength=40,maxLineGap=5)
         selected_lines,current_point = self.line_select(cv_image,lines)
-        line_image = self.display_lines(cv_image,selected_lines)
-        line_image = cv2.circle(line_image,current_point, radius=1, color=(0, 0, 255), thickness=-1)
-        target_point = (line_image.shape[1]//2,current_point[1])
-        line_image = cv2.circle(line_image,target_point, radius=1, color=(0, 255, 0), thickness=-1)
+        target_point = (cv_image.shape[1]//2,current_point[1])
+        if selected_lines != None:
+            line_image = self.display_lines(cv_image,selected_lines)
+            line_image = cv2.circle(line_image,current_point, radius=1, color=(0, 0, 255), thickness=-1)
+            line_image = cv2.circle(line_image,target_point, radius=1, color=(0, 255, 0), thickness=-1)
+            cv2.imshow("line_image",line_image)      
 
         #try to find the target point
         # print("target_point",target_point)
@@ -176,7 +178,6 @@ class SolutionNode(Node):
         # cv2.imshow("ROI",self.region_of_interest(canny))
         # cv2.imshow("canny",canny)
         cv2.imshow("prius_front",cv_image)  
-        cv2.imshow("line_image",line_image)      
         cv2.waitKey(5)
 
 
