@@ -1,0 +1,1 @@
+# AutoMinds-Solution-Machathon5.00
