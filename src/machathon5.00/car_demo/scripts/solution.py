@@ -159,17 +159,17 @@ class SolutionNode(Node):
         if (target_point[0] - current_point[0]) >= 20:
             # go right
             print("go right")
-            self.command.throttle = 0.1
+            self.command.throttle = 0.3
             self.command.steer = 1.0
         elif (target_point[0] - current_point[0]) <= -20:
             # go left
             print("go left")
-            self.command.throttle = 0.1
+            self.command.throttle = 0.3
             self.command.steer = -1.0
         else:
             # go straight
             print("go straight")
-            self.command.throttle = 0.5
+            self.command.throttle = 0.8
             self.command.steer = 0.0
         self.publisher.publish(self.command)
 
