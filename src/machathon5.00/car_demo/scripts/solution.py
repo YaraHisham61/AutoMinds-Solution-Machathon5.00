@@ -178,13 +178,18 @@ class SolutionNode(Node):
         if error >= 30:
             # go right
             print("go  right")
-            self.command.throttle = 0.2
+            if self.command.throttle == 0.85:
+                self.command.throttle = 0.1
+            else:
+                self.command.throttle = 0.2
             self.command.steer += 0.1 
-            # self.command.brake = 0.5
         elif error <= -30:
             # go left
             print("go  left")
-            self.command.throttle = 0.2
+            if self.command.throttle == 0.85:
+                self.command.throttle = 0.1
+            else:
+                self.command.throttle = 0.2
             self.command.steer += -0.1
             # self.command.brake = 0.5
         else:
@@ -194,8 +199,8 @@ class SolutionNode(Node):
             self.command.steer = 0.0
             # self.command.brake = 0.0
 
-        if self.command.throttle > 0.75:
-                self.command.throttle = 0.8
+        if self.command.throttle > 0.85:
+                self.command.throttle = 0.85
         if self.command.steer > 1.0:
             self.command.steer = 1.0
         if self.command.steer < -1.0:
