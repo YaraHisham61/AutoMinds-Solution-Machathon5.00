@@ -10,6 +10,31 @@ import matplotlib.pyplot as plt
 import numpy as np
 import time
 
+class PIDController:
+    def __init__(self, Kp, Ki, Kd, setpoint):
+        self.Kp = Kp
+        self.Ki = Ki
+        self.Kd = Kd
+        self.prev_error = 0
+        self.integral = 0
+
+        # Simulation parameters
+        self.dt = 0.01         # Time step
+        self.setpoint = setpoint    # Desired position
+
+
+    def control(self, current_value, ):
+        error = self.setpoint - current_value
+        self.integral += error * self.dt
+        derivative = (error - self.prev_error) / self.dt
+
+        # PID control equation
+        output = self.Kp * error + self.Ki * self.integral + self.Kd * derivative
+
+        self.prev_error = error
+
+        return output
+
 class FPSCounter:
     def __init__(self):
         self.frames = []
@@ -39,8 +64,23 @@ class SolutionNode(Node):
         self.bridge = CvBridge()
         self.command = Control()
 
-        self.command.throttle = 0.3
-        self.command.steer = 0.0
+        # Create PID controller
+        pid_controller = PIDController(Kp=10, Ki=10, Kd=5,setpoint=427.0)
+
+        self.pid_controller = pid_controller
+        self.max_steering_angle = 1.0  # Maximum steering angle in degrees
+        self.max_throttle = 1.0  # Maximum throttle (0 to 1)
+        self.min_throttle = 0.36 # Minimum throttle during turns (0 to 1)
+
+        # good numbers but very slow  
+        
+        # self.max_steering_angle = 0.8  # Maximum steering angle in degrees
+        # self.max_throttle = 1.0  # Maximum throttle (0 to 1)
+        # self.min_throttle = 0.35 # Minimum throttle during turns (0 to 1)
+        self.right_turn = False
+        self.left_turn = False  
+        # self.command.throttle = 0.3
+        # self.command.steer = 0.0
         self.publisher.publish(self.command)
     
     def draw_fps(self, img):
@@ -127,21 +167,26 @@ class SolutionNode(Node):
                 else:
                     right_fit.append((slope, intercept))
         # add more weight to longer lines
-        # check if left_fit is empty
+         # check if left_fit is empty
         if not left_fit:
             # something
             x1 = 0
             y1 =  300
+            self.right_turn = True
         else:
+            self.right_turn = False
             left_fit_selected  = np.average(left_fit, axis=0)
             left_line,x1,y1  = self.make_points(image, left_fit_selected)
 
         if not right_fit:
             x1 = image.shape[1]
             y1 =  300
+            self.left_turn = True
         else:
+            self.left_turn = False
             right_fit_selected = np.average(right_fit, axis=0)
             right_line,x2,y2 = self.make_points(image, right_fit_selected)
+       
         
         midpoint= ((x1+x2)//2,(y1+y2)//2)
         selected_lines = [left_line, right_line]
@@ -160,7 +205,7 @@ class SolutionNode(Node):
             line_image = cv2.circle(line_image,current_point, radius=1, color=(0, 0, 255), thickness=-1)
             line_image = cv2.circle(line_image,target_point, radius=1, color=(0, 255, 0), thickness=-1)
             cv2.imshow("line_image",line_image)      
-
+        # cv_image = self.draw_ratio(cv_image,target_point[0])
         #try to find the target point
         # print("target_point",target_point)
         # print("current_point",current_point)
@@ -168,44 +213,71 @@ class SolutionNode(Node):
         
         # make pid system 
      
-        error = (target_point[0] - current_point[0]) 
+        # error = (target_point[0] - current_point[0]) 
         # self.command.steer = error 
         # self.command.throttle =min( 1 - abs(error) + 0.1,0.6)
+        
+        if self.left_turn == True:
+            self.command.steer = -1.0
+            self.command.throttle = 0.35
+        elif self.right_turn == True:
+            self.command.steer = 1.0
+            self.command.throttle = 0.3
+        else:            
+            # Compute control output
+            control_output = self.pid_controller.control(current_point[0])
+
+            # Apply control output
+            # Steer control
+            steering_adjustment = max(min(control_output, self.max_steering_angle), -self.max_steering_angle)
+            self.command.steer = steering_adjustment
+            # Throttle control
+            # Reduce throttle based on the absolute value of the steering adjustment
+            if abs(steering_adjustment) > (self.max_steering_angle / 2):
+                # Sharp turn, reduce speed
+                throttle = self.min_throttle
+            else:
+                # Mild steering, can accelerate
+                throttle = self.max_throttle - (abs(steering_adjustment) / self.max_steering_angle) * (self.max_throttle - self.min_throttle)
+            self.command.throttle = throttle
+
+        # Publish control output
+        self.publisher.publish(self.command)
 
 
         # cv_image = self.draw_ratio(cv_image,error)
 
-        if error >= 30:
-            # go right
-            print("go  right")
-            if self.command.throttle == 0.85:
-                self.command.throttle = 0.1
-            else:
-                self.command.throttle = 0.2
-            self.command.steer += 0.1 
-        elif error <= -30:
-            # go left
-            print("go  left")
-            if self.command.throttle == 0.85:
-                self.command.throttle = 0.1
-            else:
-                self.command.throttle = 0.2
-            self.command.steer += -0.1
-            # self.command.brake = 0.5
-        else:
-            # go straight
-            print("go straight")
-            self.command.throttle += 0.1 
-            self.command.steer = 0.0
-            # self.command.brake = 0.0
+        # if error >= 30:
+        #     # go right
+        #     print("go  right")
+        #     if self.command.throttle == 0.85:
+        #         self.command.throttle = 0.1
+        #     else:
+        #         self.command.throttle = 0.2
+        #     self.command.steer += 0.1 
+        # elif error <= -30:
+        #     # go left
+        #     print("go  left")
+        #     if self.command.throttle == 0.85:
+        #         self.command.throttle = 0.1
+        #     else:
+        #         self.command.throttle = 0.2
+        #     self.command.steer += -0.1
+        #     # self.command.brake = 0.5
+        # else:
+        #     # go straight
+        #     print("go straight")
+        #     self.command.throttle += 0.1 
+        #     self.command.steer = 0.0
+        #     # self.command.brake = 0.0
 
-        if self.command.throttle > 0.85:
-                self.command.throttle = 0.85
-        if self.command.steer > 1.0:
-            self.command.steer = 1.0
-        if self.command.steer < -1.0:
-            self.command.steer = -1.0
-        self.publisher.publish(self.command)
+        # if self.command.throttle > 0.85:
+        #         self.command.throttle = 0.85
+        # if self.command.steer > 1.0:
+        #     self.command.steer = 1.0
+        # if self.command.steer < -1.0:
+        #     self.command.steer = -1.0
+        # self.publisher.publish(self.command)
 
 
         #### show image
