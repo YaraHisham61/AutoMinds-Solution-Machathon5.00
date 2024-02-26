@@ -113,7 +113,7 @@ class SolutionNode(Node):
 
     def canny(self,image):
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        blur = cv2.GaussianBlur(gray, (5, 5), 0)
+        blur = cv2.GaussianBlur(gray, (13, 13), 0)
         canny = cv2.Canny(blur, 50, 150)
         return canny
 
@@ -222,7 +222,7 @@ class SolutionNode(Node):
             self.command.throttle = 0.35
         elif self.right_turn == True:
             self.command.steer = 1.0
-            self.command.throttle = 0.3
+            self.command.throttle = 0.35
         else:            
             # Compute control output
             control_output = self.pid_controller.control(current_point[0])
